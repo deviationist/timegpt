@@ -24,6 +24,7 @@ A Chrome extension (Manifest V3) that adds timestamps to ChatGPT's UI. ChatGPT d
 
 - `/backend-api/conversation/{uuid}` — returns message data with `mapping[].message.create_time` (unix timestamp in seconds)
 - `/backend-api/conversations?offset=N&limit=N&...` — returns conversation list with `items[].create_time` (ISO 8601 string)
+- `/backend-api/f/conversation` — SSE stream for live messages; we tap the stream to extract `create_time` from `input_message` and delta events in real-time
 
 ## ChatGPT DOM selectors we depend on
 
@@ -45,4 +46,5 @@ A Chrome extension (Manifest V3) that adds timestamps to ChatGPT's UI. ChatGPT d
 - **Type check**: `npm run typecheck`
 - **Debug build**: `npm run build:debug`
 - **Watch mode**: `npm run watch`
+- **Package**: `npm run package` (builds and creates `timegpt.zip`)
 - After changing source, reload extension in `chrome://extensions` and hard-refresh ChatGPT
