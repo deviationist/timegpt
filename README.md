@@ -52,6 +52,7 @@ ChatGPT doesn't show when messages were sent or when conversations were created.
 | `npm run watch` | Rebuild on file changes |
 | `npm run watch:debug` | Watch mode with debug logging |
 | `npm run typecheck` | Run TypeScript type checking (no emit) |
+| `npm run package` | Build and create `timegpt.zip` for distribution |
 
 ### Project structure
 
