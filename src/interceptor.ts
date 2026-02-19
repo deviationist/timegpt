@@ -6,7 +6,7 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
 (function () {
   "use strict";
 
-  console.log("[TimeGPT] Interceptor loaded in MAIN world");
+  if (__DEBUG__) console.log("[TimeGPT] Interceptor loaded in MAIN world");
 
   window.__timegpt_timestamps = window.__timegpt_timestamps || {};
   window.__timegpt_conversations = window.__timegpt_conversations || {};
@@ -91,7 +91,7 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
 
     if (count === 0) return;
 
-    console.log(`[TimeGPT] Captured ${count} message timestamps`);
+    if (__DEBUG__) console.log(`[TimeGPT] Captured ${count} message timestamps`);
     Object.assign(window.__timegpt_timestamps, timestamps);
     window.postMessage(
       { type: "TIMEGPT_TIMESTAMPS", timestamps },
@@ -126,11 +126,30 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
 
     if (count === 0) return;
 
-    console.log(`[TimeGPT] Captured ${count} conversation timestamps`);
+    if (__DEBUG__) console.log(`[TimeGPT] Captured ${count} conversation timestamps`);
     Object.assign(window.__timegpt_conversations, conversations);
     window.postMessage(
       { type: "TIMEGPT_CONVERSATIONS", conversations },
       window.location.origin
     );
   }
+  // Listen for drain requests from the content script (ISOLATED world).
+  // This avoids inline script injection which violates CSP.
+  window.addEventListener("message", (event: MessageEvent) => {
+    if (event.origin !== window.location.origin) return;
+    if (event.data?.type !== "TIMEGPT_DRAIN_REQUEST") return;
+
+    if (Object.keys(window.__timegpt_timestamps).length > 0) {
+      window.postMessage(
+        { type: "TIMEGPT_TIMESTAMPS", timestamps: window.__timegpt_timestamps },
+        window.location.origin
+      );
+    }
+    if (Object.keys(window.__timegpt_conversations).length > 0) {
+      window.postMessage(
+        { type: "TIMEGPT_CONVERSATIONS", conversations: window.__timegpt_conversations },
+        window.location.origin
+      );
+    }
+  });
 })();

@@ -1,6 +1,7 @@
 const esbuild = require("esbuild");
 
 const watch = process.argv.includes("--watch");
+const debug = process.argv.includes("--debug");
 
 const options = {
   entryPoints: [
@@ -13,6 +14,9 @@ const options = {
   format: "iife",
   target: "es2020",
   logLevel: "info",
+  define: {
+    __DEBUG__: debug ? "true" : "false",
+  },
 };
 
 if (watch) {
