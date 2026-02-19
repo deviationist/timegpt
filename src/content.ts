@@ -53,10 +53,56 @@ const DEFAULTS = {
     applyAll();
   });
 
+  // --- Refresh relative timestamps periodically ---
+  let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+  function startRefreshTimer(): void {
+    if (refreshTimer !== null) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+    if (currentFormat === "relative") {
+      refreshTimer = setInterval(refreshAllTimestamps, 15000);
+    }
+  }
+
   function applyAll(): void {
+    startRefreshTimer();
     refreshAllTimestamps();
     if (showMessages) applyMessageTimestamps();
     if (showSidebar) applySidebarTimestamps();
+  }
+
+  // Retry applying message timestamps for streaming messages.
+  // The toolbar (where we insert timestamps) may not exist yet when
+  // the timestamp data first arrives from the SSE stream.
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let retryCount = 0;
+
+  function scheduleRetries(): void {
+    retryCount = 0;
+    tryApply();
+  }
+
+  function tryApply(): void {
+    if (retryTimer !== null) clearTimeout(retryTimer);
+    retryCount++;
+    if (retryCount > 10) return;
+    retryTimer = setTimeout(() => {
+      if (showMessages) applyMessageTimestamps();
+      // Keep retrying if there are still unapplied timestamps
+      if (hasUnappliedTimestamps()) tryApply();
+    }, 500);
+  }
+
+  function hasUnappliedTimestamps(): boolean {
+    for (const [id] of timestampMap) {
+      const el = document.querySelector(`[data-message-id="${id}"]`);
+      if (!el) continue;
+      const article = el.closest("article");
+      if (article && !article.querySelector(".timegpt-timestamp")) return true;
+    }
+    return false;
   }
 
   function removeMessageTimestamps(): void {
@@ -98,7 +144,12 @@ const DEFAULTS = {
         if (__DEBUG__) console.log(
           `[TimeGPT] Received ${newCount} message timestamps (total: ${timestampMap.size})`
         );
-        if (showMessages) applyMessageTimestamps();
+        if (showMessages) {
+          applyMessageTimestamps();
+          // Streaming messages: the toolbar may not exist yet when the
+          // timestamp data arrives. Retry a few times to catch it.
+          scheduleRetries();
+        }
       }
     }
 
@@ -328,6 +379,5 @@ const DEFAULTS = {
 
   observer.observe(document.body, { childList: true, subtree: true });
 
-  // --- Refresh relative timestamps every 30s ---
-  setInterval(refreshAllTimestamps, 30000);
+  startRefreshTimer();
 })();

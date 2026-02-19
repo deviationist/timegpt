@@ -56,6 +56,20 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
       }
     }
 
+    // Match streaming conversation endpoint: /backend-api/f/conversation
+    // Tap into the SSE stream to extract timestamps from new messages.
+    if (
+      /\/backend-api\/f\/conversation$/.test(url) &&
+      response.body &&
+      response.headers.get("content-type")?.includes("text/event-stream")
+    ) {
+      try {
+        return tapSSEStream(response);
+      } catch {
+        // ignore — return original response
+      }
+    }
+
     return response;
   };
 
@@ -133,6 +147,114 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
       window.location.origin
     );
   }
+  // --- SSE stream tapping for live messages ---
+  // Wraps the response body to peek at SSE events without consuming them.
+  function tapSSEStream(response: Response): Response {
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    const stream = new ReadableStream({
+      async pull(controller) {
+        const { done, value } = await reader.read();
+        if (done) {
+          // Process any remaining buffer
+          if (buffer.length > 0) processSSEBuffer(buffer);
+          controller.close();
+          return;
+        }
+        // Decode chunk and accumulate for SSE parsing
+        buffer += decoder.decode(value, { stream: true });
+        // Process complete SSE events (separated by double newlines)
+        const parts = buffer.split("\n\n");
+        // Keep the last incomplete part in the buffer
+        buffer = parts.pop() || "";
+        for (const part of parts) {
+          processSSEEvent(part);
+        }
+        // Pass the original bytes through untouched
+        controller.enqueue(value);
+      },
+      cancel() {
+        reader.cancel();
+      },
+    });
+
+    return new Response(stream, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  }
+
+  function processSSEBuffer(buf: string): void {
+    const parts = buf.split("\n\n");
+    for (const part of parts) {
+      processSSEEvent(part);
+    }
+  }
+
+  function processSSEEvent(raw: string): void {
+    // SSE format: "data: {json}\n" or "event: type\ndata: {json}\n"
+    // ChatGPT uses a custom format where each line is like:
+    //   data: {"type": "input_message", ...}
+    // or for deltas the event field indicates the type.
+    // We look for JSON payloads in "data:" lines.
+    let jsonStr = "";
+    for (const line of raw.split("\n")) {
+      if (line.startsWith("data: ")) {
+        jsonStr = line.slice(6);
+      }
+    }
+    if (!jsonStr || jsonStr === "[DONE]") return;
+
+    try {
+      const data = JSON.parse(jsonStr);
+      extractStreamTimestamp(data);
+    } catch {
+      // not JSON, ignore
+    }
+  }
+
+  function extractStreamTimestamp(data: any): void {
+    const timestamps: Record<string, MessageTimestamp> = {};
+
+    // input_message event — user message
+    if (data?.type === "input_message" && data.input_message) {
+      const msg = data.input_message;
+      if (msg.id && msg.create_time != null) {
+        timestamps[msg.id] = {
+          createTime: msg.create_time,
+          role: msg.author?.role || null,
+        };
+      }
+    }
+
+    // delta with message data — covers both formats:
+    // - Second+ turns: {"o": "add", "v": {"message": {...}}}
+    // - First turn (new conversation): {"v": {"message": {...}}, "c": N}
+    if (data?.v?.message) {
+      const msg = data.v.message;
+      if (msg.id && msg.create_time != null) {
+        timestamps[msg.id] = {
+          createTime: msg.create_time,
+          role: msg.author?.role || null,
+        };
+      }
+    }
+
+    if (Object.keys(timestamps).length === 0) return;
+
+    if (__DEBUG__) {
+      console.log("[TimeGPT] Captured streaming timestamps:", Object.keys(timestamps));
+    }
+    Object.assign(timestampBuffer, timestamps);
+    window.postMessage(
+      { type: "TIMEGPT_TIMESTAMPS", timestamps },
+      window.location.origin
+    );
+  }
+
   // Listen for drain requests from the content script (ISOLATED world).
   // This avoids inline script injection which violates CSP.
   window.addEventListener("message", (event: MessageEvent) => {
