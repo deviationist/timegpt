@@ -18,8 +18,8 @@ ChatGPT doesn't show when messages were sent or when conversations were created.
 
 1. Clone the repository:
    ```bash
-   git clone git@github.com:deviationist/time-gpt.git
-   cd time-gpt
+   git clone git@github.com:deviationist/timegpt.git
+   cd timegpt
    ```
 
 2. Install dependencies and build:
@@ -32,7 +32,7 @@ ChatGPT doesn't show when messages were sent or when conversations were created.
    - Navigate to `chrome://extensions`
    - Enable **Developer mode** (top right)
    - Click **Load unpacked**
-   - Select the `time-gpt` project folder
+   - Select the `timegpt` project folder
 
 4. Open [ChatGPT](https://chatgpt.com) and hover over any message to see timestamps.
 
@@ -56,7 +56,7 @@ ChatGPT doesn't show when messages were sent or when conversations were created.
 ### Project structure
 
 ```
-time-gpt/
+timegpt/
 ├── src/
 │   ├── types.ts          # Shared type definitions
 │   ├── globals.d.ts      # Compile-time constants (e.g. __DEBUG__)
