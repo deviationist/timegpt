@@ -1,0 +1,38 @@
+/* TimeGPT - Timestamp styling */
+/* The timestamp lives inside the inner animated button row,
+   so it inherits the container's hover transition automatically. */
+
+.timegpt-timestamp {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--token-text-tertiary, #999);
+  padding: 0 6px;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* User messages: first element in the row */
+.timegpt-timestamp--user {
+  margin-right: auto;
+}
+
+/* Assistant messages: last element in the row */
+.timegpt-timestamp--assistant {
+  flex-shrink: 0;
+  order: 9999;
+}
+
+/* --- Sidebar conversation timestamps --- */
+.timegpt-sidebar-time {
+  display: block;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--token-text-tertiary, #888);
+  margin-top: 2px;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,16 @@
+{
+  "name": "time-gpt",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Chrome extension that displays timestamps for ChatGPT messages",
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.36",
+    "esbuild": "^0.27.3",
+    "typescript": "^5.9.3"
+  }
+}
