@@ -221,7 +221,9 @@ const DEFAULTS = {
       timeEl.className = "timegpt-timestamp";
       timeEl.dateTime = new Date(info.createTime * 1000).toISOString();
       timeEl.textContent = formatTimestamp(info.createTime);
-      timeEl.title = new Date(info.createTime * 1000).toLocaleString();
+      const fullDate = new Date(info.createTime * 1000).toLocaleString();
+      timeEl.title = fullDate;
+      timeEl.setAttribute("aria-label", `Sent ${fullDate}`);
       timeEl.dataset.timegptUnix = String(info.createTime);
 
       const role = el.getAttribute("data-message-author-role");
@@ -266,7 +268,9 @@ const DEFAULTS = {
       timeEl.className = "timegpt-sidebar-time";
       timeEl.dateTime = info.createTime;
       timeEl.textContent = formatTimestamp(createUnix);
-      timeEl.title = `Created: ${new Date(info.createTime).toLocaleString()}`;
+      const fullDate = new Date(info.createTime).toLocaleString();
+      timeEl.title = `Created: ${fullDate}`;
+      timeEl.setAttribute("aria-label", `Created ${fullDate}`);
       timeEl.dataset.timegptUnix = String(createUnix);
 
       const truncateDiv = link.querySelector("div.truncate");
