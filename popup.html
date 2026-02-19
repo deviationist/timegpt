@@ -11,6 +11,7 @@
       color: #e0e0e0;
       background: #1e1e1e;
       padding: 16px;
+      color-scheme: light dark;
     }
     h1 {
       font-size: 15px;
@@ -23,7 +24,7 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #888;
+      color: #a0a0a0;
       margin-bottom: 6px;
     }
     h2:not(:first-of-type) {
@@ -51,7 +52,7 @@
       display: block;
       margin-top: 2px;
       margin-left: 22px;
-      color: #888;
+      color: #a0a0a0;
       font-size: 11px;
     }
     .toggle-row {
@@ -91,6 +92,14 @@
       transform: translateX(16px);
       background: #fff;
     }
+    .toggle:focus-visible {
+      outline: 2px solid #6abf6a;
+      outline-offset: 2px;
+    }
+    input[type="radio"]:focus-visible {
+      outline: 2px solid #6abf6a;
+      outline-offset: 2px;
+    }
     .saved {
       margin-top: 10px;
       font-size: 11px;
@@ -99,25 +108,57 @@
       transition: opacity 0.15s;
     }
     .saved.show { opacity: 1; }
+
+    /* Light mode */
+    @media (prefers-color-scheme: light) {
+      body { background: #f9f9f9; color: #1a1a1a; }
+      h1 { color: #111; }
+      h2 { color: #666; }
+      label:hover { background: #e8e8e8; }
+      label:has(input:checked) {
+        background: #ddeedd;
+        outline-color: #4a7a4a;
+      }
+      .format-example { color: #666; }
+      .toggle-row:hover { background: #e8e8e8; }
+      .toggle { background: #ccc; }
+      .toggle::after { background: #fff; }
+      input[type="radio"] {
+        accent-color: #2a7a2a;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #333;
+        border-radius: 50%;
+        background: #fff;
+        vertical-align: middle;
+        cursor: pointer;
+      }
+      input[type="radio"]:checked {
+        border-color: #2a7a2a;
+        background: #2a7a2a;
+        box-shadow: inset 0 0 0 2.5px #fff;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>TimeGPT</h1>
 
-  <h2>Show timestamps</h2>
-  <div class="toggle-row">
-    <span class="toggle-label">Messages</span>
+  <h2 id="toggles-heading">Show timestamps</h2>
+  <div class="toggle-row" role="group" aria-labelledby="toggles-heading">
+    <label class="toggle-label" for="toggle-messages">Messages</label>
     <input type="checkbox" id="toggle-messages" class="toggle" checked>
   </div>
   <div class="toggle-row">
-    <span class="toggle-label">Conversation list</span>
+    <label class="toggle-label" for="toggle-sidebar">Conversation list</label>
     <input type="checkbox" id="toggle-sidebar" class="toggle" checked>
   </div>
 
   <h2>Format</h2>
   <div id="options"></div>
 
-  <div class="saved" id="saved">Saved</div>
+  <div class="saved" id="saved" role="status" aria-live="polite">Saved</div>
 
   <script src="dist/popup.js"></script>
 </body>

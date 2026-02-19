@@ -8,8 +8,8 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
 
   if (__DEBUG__) console.log("[TimeGPT] Interceptor loaded in MAIN world");
 
-  window.__timegpt_timestamps = window.__timegpt_timestamps || {};
-  window.__timegpt_conversations = window.__timegpt_conversations || {};
+  const timestampBuffer: Record<string, MessageTimestamp> = {};
+  const conversationBuffer: Record<string, ConversationTimestamp> = {};
 
   const originalFetch = window.fetch;
 
@@ -92,7 +92,7 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
     if (count === 0) return;
 
     if (__DEBUG__) console.log(`[TimeGPT] Captured ${count} message timestamps`);
-    Object.assign(window.__timegpt_timestamps, timestamps);
+    Object.assign(timestampBuffer, timestamps);
     window.postMessage(
       { type: "TIMEGPT_TIMESTAMPS", timestamps },
       window.location.origin
@@ -127,7 +127,7 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
     if (count === 0) return;
 
     if (__DEBUG__) console.log(`[TimeGPT] Captured ${count} conversation timestamps`);
-    Object.assign(window.__timegpt_conversations, conversations);
+    Object.assign(conversationBuffer, conversations);
     window.postMessage(
       { type: "TIMEGPT_CONVERSATIONS", conversations },
       window.location.origin
@@ -139,15 +139,15 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
     if (event.origin !== window.location.origin) return;
     if (event.data?.type !== "TIMEGPT_DRAIN_REQUEST") return;
 
-    if (Object.keys(window.__timegpt_timestamps).length > 0) {
+    if (Object.keys(timestampBuffer).length > 0) {
       window.postMessage(
-        { type: "TIMEGPT_TIMESTAMPS", timestamps: window.__timegpt_timestamps },
+        { type: "TIMEGPT_TIMESTAMPS", timestamps: timestampBuffer },
         window.location.origin
       );
     }
-    if (Object.keys(window.__timegpt_conversations).length > 0) {
+    if (Object.keys(conversationBuffer).length > 0) {
       window.postMessage(
-        { type: "TIMEGPT_CONVERSATIONS", conversations: window.__timegpt_conversations },
+        { type: "TIMEGPT_CONVERSATIONS", conversations: conversationBuffer },
         window.location.origin
       );
     }

@@ -8,7 +8,8 @@
     "build:debug": "node build.js --debug",
     "watch": "node build.js --watch",
     "watch:debug": "node build.js --watch --debug",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "package": "npm run build && rm -f timegpt.zip && zip -r timegpt.zip manifest.json popup.html styles.css dist/ icons/ -x '*.DS_Store'"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.36",

@@ -7,7 +7,7 @@
   align-items: center;
   font-size: 11px;
   line-height: 1;
-  color: var(--token-text-tertiary, #999);
+  color: var(--token-text-tertiary, #666);
   padding: 0 6px;
   user-select: none;
   white-space: nowrap;
@@ -29,10 +29,16 @@
   display: block;
   font-size: 10px;
   line-height: 1;
-  color: var(--token-text-tertiary, #888);
+  color: var(--token-text-tertiary, #666);
   margin-top: 2px;
   user-select: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Dark mode fallbacks (when --token-text-tertiary is unavailable) */
+html.dark .timegpt-timestamp,
+html.dark .timegpt-sidebar-time {
+  color: var(--token-text-tertiary, #b0b0b0);
 }

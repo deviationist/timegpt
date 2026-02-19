@@ -34,11 +34,3 @@ export interface TimegptConversationsMessage {
   type: "TIMEGPT_CONVERSATIONS";
   conversations: Record<string, ConversationTimestamp>;
 }
-
-// Extend Window for the MAIN world global buffers
-declare global {
-  interface Window {
-    __timegpt_timestamps: Record<string, MessageTimestamp>;
-    __timegpt_conversations: Record<string, ConversationTimestamp>;
-  }
-}
