@@ -5,7 +5,9 @@
   "description": "Chrome extension that displays timestamps for ChatGPT messages",
   "scripts": {
     "build": "node build.js",
+    "build:debug": "node build.js --debug",
     "watch": "node build.js --watch",
+    "watch:debug": "node build.js --watch --debug",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

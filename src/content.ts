@@ -19,7 +19,7 @@ const DEFAULTS = {
 (function () {
   "use strict";
 
-  console.log("[TimeGPT] Content script loaded");
+  if (__DEBUG__) console.log("[TimeGPT] Content script loaded");
 
   // --- Storage ---
   const timestampMap = new Map<string, MessageTimestamp>();
@@ -34,7 +34,7 @@ const DEFAULTS = {
     currentFormat = result.timestampFormat as TimestampFormat;
     showMessages = result.showMessageTimestamps as boolean;
     showSidebar = result.showSidebarTimestamps as boolean;
-    console.log("[TimeGPT] Settings:", { currentFormat, showMessages, showSidebar });
+    if (__DEBUG__) console.log("[TimeGPT] Settings:", { currentFormat, showMessages, showSidebar });
     applyAll();
   });
 
@@ -68,29 +68,15 @@ const DEFAULTS = {
   }
 
   // --- Pick up any data the interceptor already captured ---
-  function drainBuffered(): void {
-    const el = document.createElement("script");
-    el.textContent = `
-      if (window.__timegpt_timestamps && Object.keys(window.__timegpt_timestamps).length) {
-        window.postMessage(
-          { type: "TIMEGPT_TIMESTAMPS", timestamps: window.__timegpt_timestamps },
-          window.location.origin
-        );
-      }
-      if (window.__timegpt_conversations && Object.keys(window.__timegpt_conversations).length) {
-        window.postMessage(
-          { type: "TIMEGPT_CONVERSATIONS", conversations: window.__timegpt_conversations },
-          window.location.origin
-        );
-      }
-    `;
-    document.documentElement.appendChild(el);
-    el.remove();
+  // Send a drain request to the interceptor (MAIN world) via postMessage.
+  // The interceptor listens for this and re-posts any buffered data.
+  function requestDrain(): void {
+    window.postMessage({ type: "TIMEGPT_DRAIN_REQUEST" }, window.location.origin);
   }
 
-  drainBuffered();
-  setTimeout(drainBuffered, 1000);
-  setTimeout(drainBuffered, 3000);
+  requestDrain();
+  setTimeout(requestDrain, 1000);
+  setTimeout(requestDrain, 3000);
 
   // --- Listen for data from the interceptor ---
   window.addEventListener("message", (event: MessageEvent) => {
@@ -109,7 +95,7 @@ const DEFAULTS = {
         timestampMap.set(id, info);
       }
       if (newCount > 0) {
-        console.log(
+        if (__DEBUG__) console.log(
           `[TimeGPT] Received ${newCount} message timestamps (total: ${timestampMap.size})`
         );
         if (showMessages) applyMessageTimestamps();
@@ -124,7 +110,7 @@ const DEFAULTS = {
         conversationMap.set(id, info);
       }
       if (newCount > 0) {
-        console.log(
+        if (__DEBUG__) console.log(
           `[TimeGPT] Received ${newCount} conversation timestamps (total: ${conversationMap.size})`
         );
         if (showSidebar) applySidebarTimestamps();
@@ -250,7 +236,7 @@ const DEFAULTS = {
     }
 
     if (applied > 0) {
-      console.log(`[TimeGPT] Applied ${applied} message timestamps to DOM`);
+      if (__DEBUG__) console.log(`[TimeGPT] Applied ${applied} message timestamps to DOM`);
     }
   }
 
@@ -292,7 +278,7 @@ const DEFAULTS = {
     }
 
     if (applied > 0) {
-      console.log(`[TimeGPT] Applied ${applied} sidebar timestamps`);
+      if (__DEBUG__) console.log(`[TimeGPT] Applied ${applied} sidebar timestamps`);
     }
   }
 
