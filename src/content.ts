@@ -201,7 +201,7 @@ const DEFAULTS = {
 
     switch (currentFormat) {
       case "relative":
-        return formatRelative(date);
+        return formatRelativeWithExact(date);
       case "datetime24":
         return formatParts(date, {
           year: "numeric",
@@ -241,6 +241,24 @@ const DEFAULTS = {
 
   function isoToUnix(isoString: string): number {
     return new Date(isoString).getTime() / 1000;
+  }
+
+  function formatRelativeWithExact(date: Date): string {
+    const diffDays = Math.floor((Date.now() - date.getTime()) / 86400000);
+    const exact = formatParts(date, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    // formatRelative() already becomes an absolute date after 30 days.
+    // Avoid showing the same information twice in that range.
+    if (diffDays >= 30) return exact;
+
+    return `${formatRelative(date)} · ${exact}`;
   }
 
   function formatRelative(date: Date): string {
