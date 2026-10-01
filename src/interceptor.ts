@@ -11,6 +11,112 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
   const timestampBuffer: Record<string, MessageTimestamp> = {};
   const conversationBuffer: Record<string, ConversationTimestamp> = {};
 
+  const CURRENT_CONVERSATION_RESPONSE_RE =
+    /\/backend-api\/conversations\/[0-9a-f-]{20,}(?:\/messages)?(?:\?|$)/;
+  const CONVERSATIONS_LIST_RE = /\/backend-api\/conversations(?:\?|$)/;
+
+  function publishMessageTimestamps(
+    timestamps: Record<string, MessageTimestamp>,
+    source: string
+  ): void {
+    const changed: Record<string, MessageTimestamp> = {};
+
+    for (const [id, info] of Object.entries(timestamps)) {
+      const previous = timestampBuffer[id];
+      if (
+        previous &&
+        previous.createTime === info.createTime &&
+        previous.role === info.role
+      ) {
+        continue;
+      }
+      timestampBuffer[id] = info;
+      changed[id] = info;
+    }
+
+    const count = Object.keys(changed).length;
+    if (count === 0) return;
+
+    if (__DEBUG__) console.log(`[TimeGPT] Captured ${count} message timestamps (${source})`);
+    window.postMessage(
+      { type: "TIMEGPT_TIMESTAMPS", timestamps: changed },
+      window.location.origin
+    );
+  }
+
+  function publishConversationTimestamps(
+    conversations: Record<string, ConversationTimestamp>
+  ): void {
+    const changed: Record<string, ConversationTimestamp> = {};
+
+    for (const [id, info] of Object.entries(conversations)) {
+      const previous = conversationBuffer[id];
+      if (
+        previous &&
+        previous.createTime === info.createTime &&
+        previous.updateTime === info.updateTime &&
+        previous.title === info.title
+      ) {
+        continue;
+      }
+      conversationBuffer[id] = info;
+      changed[id] = info;
+    }
+
+    const count = Object.keys(changed).length;
+    if (count === 0) return;
+
+    if (__DEBUG__) console.log(`[TimeGPT] Captured ${count} conversation timestamps`);
+    window.postMessage(
+      { type: "TIMEGPT_CONVERSATIONS", conversations: changed },
+      window.location.origin
+    );
+  }
+
+  function extractCurrentMessageTimestamps(data: unknown): void {
+    const timestamps: Record<string, MessageTimestamp> = {};
+    const seen = new WeakSet<object>();
+
+    const visit = (value: unknown): void => {
+      if (value === null || typeof value !== "object") return;
+
+      const objectValue = value as object;
+      if (seen.has(objectValue)) return;
+      seen.add(objectValue);
+
+      if (Array.isArray(value)) {
+        for (const item of value) visit(item);
+        return;
+      }
+
+      const record = value as Record<string, unknown>;
+      const author = record.author;
+      const role =
+        author !== null &&
+        typeof author === "object" &&
+        "role" in author
+          ? (author as { role?: unknown }).role
+          : null;
+
+      if (
+        typeof record.id === "string" &&
+        typeof record.create_time === "number" &&
+        Number.isFinite(record.create_time) &&
+        (role === "user" || role === "assistant")
+      ) {
+        timestamps[record.id] = {
+          createTime: record.create_time,
+          role,
+        };
+      }
+
+      for (const child of Object.values(record)) visit(child);
+    };
+
+    visit(data);
+    publishMessageTimestamps(timestamps, "current conversation response");
+  }
+
   const originalFetch = window.fetch;
 
   window.fetch = async function (...args: Parameters<typeof fetch>): Promise<Response> {
@@ -73,6 +179,27 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
     return response;
   };
 
+  // Current ChatGPT may replace or wrap window.fetch after document_start.
+  // Response.prototype.json remains on the response path, so observe parsed
+  // responses there as a resilient fallback without consuming the body.
+  const originalResponseJson = Response.prototype.json;
+  Response.prototype.json = async function (): Promise<any> {
+    const data = await originalResponseJson.call(this);
+
+    try {
+      const url = this.url || "";
+      if (CURRENT_CONVERSATION_RESPONSE_RE.test(url)) {
+        extractCurrentMessageTimestamps(data);
+      } else if (CONVERSATIONS_LIST_RE.test(url)) {
+        extractConversationTimestamps(data);
+      }
+    } catch {
+      // Observability must never change page behavior.
+    }
+
+    return data;
+  };
+
   interface ConversationDetailResponse {
     mapping?: Record<
       string,
@@ -104,13 +231,7 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
     }
 
     if (count === 0) return;
-
-    if (__DEBUG__) console.log(`[TimeGPT] Captured ${count} message timestamps`);
-    Object.assign(timestampBuffer, timestamps);
-    window.postMessage(
-      { type: "TIMEGPT_TIMESTAMPS", timestamps },
-      window.location.origin
-    );
+    publishMessageTimestamps(timestamps, "legacy conversation response");
   }
 
   interface ConversationsListResponse {
@@ -139,13 +260,7 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
     }
 
     if (count === 0) return;
-
-    if (__DEBUG__) console.log(`[TimeGPT] Captured ${count} conversation timestamps`);
-    Object.assign(conversationBuffer, conversations);
-    window.postMessage(
-      { type: "TIMEGPT_CONVERSATIONS", conversations },
-      window.location.origin
-    );
+    publishConversationTimestamps(conversations);
   }
   // --- SSE stream tapping for live messages ---
   // Wraps the response body to peek at SSE events without consuming them.
@@ -244,15 +359,7 @@ import type { MessageTimestamp, ConversationTimestamp } from "./types";
     }
 
     if (Object.keys(timestamps).length === 0) return;
-
-    if (__DEBUG__) {
-      console.log("[TimeGPT] Captured streaming timestamps:", Object.keys(timestamps));
-    }
-    Object.assign(timestampBuffer, timestamps);
-    window.postMessage(
-      { type: "TIMEGPT_TIMESTAMPS", timestamps },
-      window.location.origin
-    );
+    publishMessageTimestamps(timestamps, "stream");
   }
 
   // Listen for drain requests from the content script (ISOLATED world).

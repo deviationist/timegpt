@@ -95,13 +95,39 @@ const DEFAULTS = {
     }, 500);
   }
 
-  function hasUnappliedTimestamps(): boolean {
-    for (const [id] of timestampMap) {
-      const el = document.querySelector(`[data-message-id="${id}"]`);
-      if (!el) continue;
-      const article = el.closest("article");
-      if (article && !article.querySelector(".timegpt-timestamp")) return true;
+  function getTurnMessageIds(el: Element): string[] {
+    const current = el.getAttribute("data-chatgpt-search-message-ids");
+    if (current) {
+      return [...new Set(current.split(/\s+/).filter(Boolean))];
     }
+
+    const legacy = el.getAttribute("data-message-id");
+    return legacy ? [legacy] : [];
+  }
+
+  function getTurnRole(el: Element): "user" | "assistant" | null {
+    const legacyRole = el.getAttribute("data-message-author-role");
+    if (legacyRole === "user" || legacyRole === "assistant") return legacyRole;
+
+    const key = el.getAttribute("data-chatgpt-search-unit-key") || "";
+    if (key.endsWith(":user")) return "user";
+    if (key.endsWith(":assistant")) return "assistant";
+
+    if (el.querySelector('[data-user-message-bubble="true"]')) return "user";
+    return null;
+  }
+
+  function hasUnappliedTimestamps(): boolean {
+    const turns = document.querySelectorAll(
+      "[data-chatgpt-search-message-ids], [data-message-id]"
+    );
+
+    for (const el of turns) {
+      const ids = getTurnMessageIds(el);
+      if (!ids.some((id) => timestampMap.has(id))) continue;
+      if (!el.querySelector(".timegpt-timestamp")) return true;
+    }
+
     return false;
   }
 
@@ -251,40 +277,36 @@ const DEFAULTS = {
   // =============================================
 
   function applyMessageTimestamps(): void {
-    const messageEls = document.querySelectorAll("[data-message-id]");
+    const messageEls = document.querySelectorAll(
+      "[data-chatgpt-search-message-ids], [data-message-id]"
+    );
     let applied = 0;
 
     for (const el of messageEls) {
-      const id = el.getAttribute("data-message-id");
-      if (!id || !timestampMap.has(id)) continue;
+      if (el.querySelector(".timegpt-timestamp")) continue;
 
-      const article = el.closest("article");
-      if (!article) continue;
-      if (article.querySelector(".timegpt-timestamp")) continue;
-
-      const toolbarOuter = article.querySelector("div.z-0.flex");
-      if (!toolbarOuter) continue;
-      const buttonRow = toolbarOuter.firstElementChild;
-      if (!buttonRow) continue;
+      const ids = getTurnMessageIds(el);
+      const id = ids.find((candidate) => timestampMap.has(candidate));
+      if (!id) continue;
 
       const info = timestampMap.get(id)!;
+      const role = getTurnRole(el) || info.role;
+      if (role !== "user" && role !== "assistant") continue;
+
       const timeEl = document.createElement("time");
-      timeEl.className = "timegpt-timestamp";
+      timeEl.className = `timegpt-timestamp timegpt-timestamp--${role}`;
       timeEl.dateTime = new Date(info.createTime * 1000).toISOString();
       timeEl.textContent = formatTimestamp(info.createTime);
+
       const fullDate = new Date(info.createTime * 1000).toLocaleString();
       timeEl.title = fullDate;
       timeEl.setAttribute("aria-label", `Sent ${fullDate}`);
       timeEl.dataset.timegptUnix = String(info.createTime);
+      timeEl.dataset.timegptMessageId = id;
 
-      const role = el.getAttribute("data-message-author-role");
-      if (role === "user") {
-        timeEl.classList.add("timegpt-timestamp--user");
-        buttonRow.prepend(timeEl);
-      } else {
-        timeEl.classList.add("timegpt-timestamp--assistant");
-        buttonRow.appendChild(timeEl);
-      }
+      // Current ChatGPT exposes the message UUID on the turn container.
+      // Attach the timestamp to that turn; CSS handles role alignment.
+      el.appendChild(timeEl);
       applied++;
     }
 
@@ -358,7 +380,9 @@ const DEFAULTS = {
         const el = node as Element;
         if (
           el.hasAttribute?.("data-message-id") ||
-          el.querySelector?.("[data-message-id]")
+          el.hasAttribute?.("data-chatgpt-search-message-ids") ||
+          el.querySelector?.("[data-message-id]") ||
+          el.querySelector?.("[data-chatgpt-search-message-ids]")
         ) {
           hasMessages = true;
         }
